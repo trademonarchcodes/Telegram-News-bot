@@ -1,0 +1,16 @@
+{
+  "name": "telegram-news-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Posts AI/Crypto/Forex/Indices/Oil/Stocks/Global news to a Telegram channel from free RSS feeds. Runs once per invocation — designed to be triggered by GitHub Actions on a schedule.",
+  "scripts": {
+    "start": "node bot.mjs"
+  },
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
