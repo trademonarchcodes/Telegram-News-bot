@@ -1,9 +1,13 @@
 // Standalone Telegram news bot — designed to be triggered by GitHub Actions
-// on a schedule (e.g. every 15 minutes). Each run: fetch feeds, post new
-// articles, persist a small "seen" ledger to seen.json so the next run
-// (a fresh container) knows what it already posted.
+// on a schedule (e.g. every 15 minutes). Each run: fetch feeds, keep only
+// articles that look genuinely market-moving, check the Bitcoin price for
+// new highs/lows, post everything qualifying, and persist a small "seen"
+// ledger to seen.json so the next run (a fresh container) knows what it
+// already posted.
 import { readFile, writeFile } from "node:fs/promises";
 import RSSParser from "rss-parser";
+import { isMarketMoving } from "./filter.mjs";
+import { checkBitcoinPrice } from "./price.mjs";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
@@ -70,11 +74,25 @@ function escapeAttr(text) {
   return text.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+const BRAND_NAME = "MONARCH CODEX";
+const BRAND_TAGLINE = "Global Market Intelligence";
+const BRAND_FOOTER = `— <b>${escapeHtml(BRAND_NAME)}</b> · <i>${escapeHtml(BRAND_TAGLINE)}</i>`;
+
 function formatCaption(article) {
+  if (article.isPriceAlert) {
+    return (
+      `👑 <b>${escapeHtml(BRAND_NAME)}</b> MARKET ALERT\n\n` +
+      `₿ <b>${escapeHtml(article.title)}</b>\n\n` +
+      `<pre>${escapeHtml(article.priceBody)}</pre>\n` +
+      `${BRAND_FOOTER}`
+    );
+  }
   return (
-    `${article.source.category} | <b>${escapeHtml(article.title)}</b>\n` +
+    `👑 <b>${escapeHtml(BRAND_NAME)}</b> | ${escapeHtml(article.source.category)}\n\n` +
+    `<b>${escapeHtml(article.title)}</b>\n` +
     `📰 <i>${escapeHtml(article.source.name)}</i>\n\n` +
-    `<a href="${escapeAttr(article.link)}">Read full article →</a>`
+    `<a href="${escapeAttr(article.link)}">Read full article →</a>\n\n` +
+    `${BRAND_FOOTER}`
   );
 }
 
@@ -95,6 +113,7 @@ async function fetchFeed(source) {
       articles.push({
         guid,
         title: item.title.trim(),
+        contentSnippet: item.contentSnippet?.trim() ?? "",
         link: linkUrl.href,
         imageUrl: extractImage(item),
         pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
@@ -192,8 +211,23 @@ async function saveSeen(seenSet) {
   await writeFile(SEEN_FILE, JSON.stringify({ guids }, null, 2));
 }
 
+async function postArticle(article) {
+  const caption = formatCaption(article);
+  return article.imageUrl ? await sendPhoto(article.imageUrl, caption) : await sendMessage(caption);
+}
+
 async function main() {
   console.log("[info] News cycle started");
+
+  // Bitcoin price check runs independently of the "first run seeds, doesn't
+  // post" rule below — it has its own state file and is always safe to post
+  // once seeded, since it only fires on genuine highs/lows/sharp moves.
+  const priceAlert = await checkBitcoinPrice();
+  if (priceAlert) {
+    const ok = await postArticle(priceAlert);
+    console.log(ok ? `[info] Posted price alert: "${priceAlert.title}"` : "[warn] Failed to post price alert");
+    await sleep(1200);
+  }
 
   const results = await Promise.allSettled(FEED_SOURCES.map((src) => fetchFeed(src)));
 
@@ -202,26 +236,33 @@ async function main() {
     if (result.status === "fulfilled") allArticles.push(...result.value);
   }
 
+  // Only keep articles that look like they'd actually move a global market
+  // — Trump/political speeches, Fed/central bank moves, wars, big crypto or
+  // stock moves, oil shocks, etc. — instead of every routine story.
+  const relevantArticles = allArticles.filter(isMarketMoving);
+  console.log(`[info] ${relevantArticles.length}/${allArticles.length} fetched articles passed the market-impact filter`);
+
   const existingSeen = await loadSeen();
   const isFirstRun = existingSeen === null;
   const seen = existingSeen ?? new Set();
 
-  const newArticles = allArticles.filter((a) => !seen.has(a.guid));
+  const newArticles = relevantArticles.filter((a) => !seen.has(a.guid));
   newArticles.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
 
   if (isFirstRun) {
-    for (const article of newArticles) seen.add(article.guid);
+    // Seed with ALL fetched articles (not just relevant ones) so we don't
+    // re-evaluate old backlog against the filter on the next run.
+    for (const article of allArticles) seen.add(article.guid);
     await saveSeen(seen);
-    console.log(`[info] First run: seeded seen cache with ${newArticles.length} articles, no posts sent`);
+    console.log(`[info] First run: seeded seen cache with ${allArticles.length} articles, no posts sent`);
     return;
   }
 
   const toPost = newArticles.slice(0, MAX_PER_RUN);
-  console.log(`[info] Found ${newArticles.length} new articles, posting up to ${toPost.length}`);
+  console.log(`[info] Found ${newArticles.length} new market-moving articles, posting up to ${toPost.length}`);
 
   for (const article of toPost) {
-    const caption = formatCaption(article);
-    const ok = article.imageUrl ? await sendPhoto(article.imageUrl, caption) : await sendMessage(caption);
+    const ok = await postArticle(article);
 
     if (ok) {
       seen.add(article.guid);
@@ -233,6 +274,9 @@ async function main() {
     await sleep(1200);
   }
 
+  // Mark all fetched (not just relevant) articles as seen so filtered-out
+  // noise doesn't get re-evaluated every run either.
+  for (const article of allArticles) seen.add(article.guid);
   await saveSeen(seen);
   console.log("[info] News cycle complete");
 }

@@ -25,7 +25,8 @@ export const FEED_SOURCES = [
   { name: "MarketWatch", category: "📈 Stocks", url: "https://feeds.content.dowjones.io/public/rss/mw_topstories" },
   { name: "Yahoo Finance", category: "📈 Stocks", url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL,GOOGL,MSFT,AMZN,TSLA&region=US&lang=en-US" },
 
-  // ── Global News ──────────────────────────────────────────────────────
+  // ── Global News (macro/political events that move markets) ──────────
   { name: "BBC World", category: "🌍 Global News", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
   { name: "Al Jazeera", category: "🌍 Global News", url: "https://www.aljazeera.com/xml/rss/all.xml" },
+  { name: "Reuters Business", category: "🌍 Global News", url: "https://ir.thomsonreuters.com/rss/news-releases.xml?items=15" },
 ];
