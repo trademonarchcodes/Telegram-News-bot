@@ -96,9 +96,21 @@ function formatCaption(article) {
   );
 }
 
+function withHardTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function fetchFeed(source) {
   try {
-    const feed = await parser.parseURL(source.url);
+    // rss-parser's own `timeout` option isn't always honored by every feed
+    // (e.g. a server that accepts the connection but never sends a body), so
+    // we enforce a hard backstop here too — a single slow feed must never be
+    // able to hang the whole run.
+    const feed = await withHardTimeout(parser.parseURL(source.url), 15_000, `Feed ${source.name}`);
     const articles = [];
     for (const item of feed.items ?? []) {
       const guid = item.guid ?? item.link ?? item.title;
