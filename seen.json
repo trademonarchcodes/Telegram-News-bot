@@ -1,11 +1,5 @@
 {
   "guids": [
-    "bf5be102-6abb-388b-bb60-b429de7c3bb0",
-    "c3cc8734-c43e-34d3-b9e1-7c0b6a4b4f1e",
-    "a3cb6623-60c4-3716-9838-197d7ae85fc3",
-    "47ed0587-2eb2-3a45-a053-b0526fa36f78",
-    "00e51023-c37f-3d16-83e2-1b381dc0210c",
-    "ee97203c-f7f6-3dca-860f-5400dc2a03bf",
     "0c365972-9a9b-3d9c-ac69-a2f14ae959b9",
     "769f44d7-d180-3323-8d7b-05f33153ba56",
     "7c520893-c2f9-3b43-a823-2a41fb5d5945",
@@ -2999,6 +2993,12 @@
     "https://www.aljazeera.com/?t=1785074358",
     "https://www.aljazeera.com/?t=1785082394",
     "https://www.aljazeera.com/?t=1785055593",
-    "https://www.aljazeera.com/?t=1785071910"
+    "https://www.aljazeera.com/?t=1785071910",
+    "3151c3cd-9f72-391b-8677-ba42ee934008",
+    "c401f000-112a-3643-904b-b35a2ce1a54b",
+    "https://www.bbc.co.uk/news/articles/cy8me5vyjg2o#0",
+    "https://www.bbc.co.uk/news/articles/cj637zd1k1ko#1",
+    "https://www.bbc.co.uk/news/articles/c5y0m8z6de3o#2",
+    "https://www.aljazeera.com/?t=1785098771"
   ]
 }
